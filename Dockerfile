@@ -1,25 +1,28 @@
-# 1. Use the official Java 17 runtime image
-FROM eclipse-temurin:17-jdk-jammy
-
-# 2. Set the working directory inside the container
+# ===== 1) Build stage: use Maven to build jar =====
+FROM maven:3.9.9-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# 3. Copy Maven configuration and wrapper first
-#    (to leverage Docker layer caching)
-COPY pom.xml mvnw ./
+# Copy pom first for better cache
+COPY pom.xml .
+COPY mvnw .
 COPY .mvn .mvn
+RUN chmod +x mvnw
 
-# 4. Download dependencies
-#    (this layer will be cached if pom.xml does not change)
-RUN chmod +x mvnw && ./mvnw dependency:go-offline
+# Download dependencies (cache)
+RUN ./mvnw -q -DskipTests dependency:go-offline
 
-# 5. Copy application source code
-COPY src src
+# Copy source and build
+COPY src ./src
+RUN ./mvnw -DskipTests clean package
 
+# ===== 2) Run stage: run the built jar =====
+FROM eclipse-temurin:17-jre-jammy
+WORKDIR /app
 
-# 6. Build the application JAR
-#    (skip tests to speed up the build)
-RUN ./mvnw package -DskipTests
+# Copy the jar from build stage
+COPY --from=build /app/target/*.jar app.jar
 
-# 7. Run the Spring Boot application
-CMD ["java", "-jar", "target/*.jar"]
+# Render will inject PORT, Spring reads it from server.port=${PORT:8080}
+EXPOSE 8080
+
+CMD ["java", "-jar", "app.jar"]
