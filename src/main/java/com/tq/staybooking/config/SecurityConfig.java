@@ -139,6 +139,9 @@ public class SecurityConfig {
                     .antMatchers(HttpMethod.POST, "/register/*").permitAll()
                     .antMatchers(HttpMethod.POST, "/authenticate/*").permitAll()
 
+                    .antMatchers("/", "/health").permitAll()
+
+
                     // 先别写两个 hasRole 都针对同一个 /stays/**（会冲突）
                     // 先让 stays 只要求登录 or 只给 HOST，二选一
 //                    .antMatchers("/stays/**").authenticated()
