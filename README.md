@@ -1,30 +1,40 @@
 # StayBooking Backend
 
-A Spring Boot backend for an Airbnb-style booking platform, focusing on **stateless authentication**, **role-based authorization**, and **clean backend architecture**.
+A Spring Boot backend for a full-stack accommodation booking platform supporting
+property management, location-based search, reservations, authentication, and
+image management.
 
-This project is built as a **production-oriented learning backend**, emphasizing real-world concerns such as security, external integrations, and frontend–backend separation.
+**Frontend Repository:** [StayBooking Frontend](https://github.com/QTian157/staybooking-frontend)  
+**Backend Repository:** [StayBooking Backend](https://github.com/QTian157/staybooking-backend)  
+**Live Demo:** Temporarily unavailable while the original cloud deployment is being updated
 
 ---
 
 ## Key Features
 
-- Stateless authentication using JWT
-- Role-based access control (HOST / GUEST)
-- RESTful APIs for authentication, stays, search, and reservations
-- MySQL as primary datastore (AWS RDS)
-- Google Cloud Storage for image uploads
-- Elasticsearch integration for search
-- Explicit CORS handling for frontend integration
+- Stateless JWT authentication and role-based authorization for HOST and GUEST users
+- REST APIs for authentication, property management, search, and reservations
+- Geospatial property search using Elasticsearch geo-distance queries
+- MySQL/JPA filtering for guest capacity and reservation availability
+- Transactional reservation workflow with collision detection and date-level availability tracking
+- BCrypt password hashing with Spring Security
+- Google Geocoding integration for property locations
+- Google Cloud Storage integration for property images
+- Explicit CORS configuration for frontend-backend integration
 
 ---
 
 ## Tech Stack
 
-- Java + Spring Boot
-- Spring Security + JWT
-- MySQL (AWS RDS)
-- Google Cloud Storage
+- Java
+- Spring Boot
+- Spring Data JPA / Hibernate
+- Spring Security
+- MySQL
 - Elasticsearch
+- JWT
+- Google Cloud Storage
+- Google Geocoding API
 - Maven
 
 ---
@@ -33,24 +43,26 @@ This project is built as a **production-oriented learning backend**, emphasizing
 
 The backend follows a layered architecture:
 
-```
-Controller → Service → DAO / Repository
-↓
-Security (JWT, Roles)
-```
+Controller → Service → Repository  
+　　　　　　　　　↓  
+　　　　 MySQL / Elasticsearch
 
-- Controllers handle request validation and authentication context
-- Services encapsulate business logic
-- Persistence is handled via JPA repositories
-- Security is centralized and enforced through Spring Security filters
+Security is handled centrally through Spring Security and JWT filters.
 
-The application is fully **stateless**, with no server-side session storage.
+- Controllers handle HTTP requests and request validation
+- Services contain business logic and application workflows
+- Repositories provide persistent data access through Spring Data JPA
+- DTOs define request and response contracts
+- Centralized exception handling provides consistent API error responses
+- Spring Security filters handle authentication and authorization
+
+The application uses stateless authentication with no server-side user sessions.
 
 ---
 
 ## Authentication & Authorization
 
-Authentication is handled via JWT tokens.
+Authentication is handled using JWT tokens and Spring Security.
 
 Two roles are supported:
 
@@ -64,84 +76,179 @@ Two roles are supported:
 
 ### Role-Based Access Control
 
-Authorization rules are enforced centrally via Spring Security:
+Authorization rules are enforced through Spring Security.
 
-- Hosts can manage stays (`/stays/**`)
-- Guests can search stays and manage reservations (`/search`, `/reservations/**`)
-- All other endpoints require authentication
+- Hosts can manage stays
+- Guests can search stays and manage reservations
+- Protected endpoints require authentication
 
-```md
-JWT tokens must be included in requests as:
-Authorization: Bearer <JWT_TOKEN>
+Authenticated requests include the JWT token in the authorization header:
 
-```
+`Authorization: Bearer <JWT_TOKEN>`
+
+---
+
+## Search
+
+Property search combines Elasticsearch with relational data stored in MySQL.
+
+### Search Flow
+
+1. A location is converted to geographic coordinates using the Google Geocoding API.
+2. Elasticsearch geo-distance queries identify nearby stays.
+3. Candidate stay IDs are filtered through MySQL/JPA based on guest capacity and reservation availability.
+4. Matching stays are returned to the frontend.
+
+This allows Elasticsearch to handle geospatial search while relational booking
+and availability data remain in MySQL.
 
 ---
 
 ## Reservation Logic
 
-- Reservations are always associated with the currently authenticated user
-- Server-side validation ensures:
-    - Check-in date is before check-out date
-    - Dates are not in the past
-- Authorization checks ensure users can only access or modify their own reservations
+The reservation workflow validates booking requests and prevents conflicting reservations.
 
-This logic is enforced to maintain data integrity and security.
-
----
-
-## Configuration & External Services
-
-The backend integrates with multiple external services, configured via `application.properties` and environment variables:
-
-- MySQL database (AWS RDS)
-- JWT signing configuration
-- Google Cloud Storage bucket
-- Elasticsearch
-- Geocoding API
-
-Sensitive information (credentials, secrets, API keys) is not committed to version control.
+- Check-in must occur before check-out
+- Reservation dates cannot be in the past
+- Availability is tracked at the date level
+- Collision checks prevent overlapping reservations
+- Reservation operations are executed transactionally
+- Reservations are associated with the authenticated guest
+- Authorization checks prevent users from accessing or modifying another user's reservations
 
 ---
 
-## CORS & Security Settings
+## External Services
 
-- CSRF is disabled due to stateless JWT authentication
-- Sessions are disabled (`SessionCreationPolicy.STATELESS`)
-- CORS is handled explicitly to support frontend development on a separate origin
+The backend integrates with:
 
-This enables smooth integration with a React frontend running on a different port.
+- MySQL for relational application data
+- Elasticsearch for geospatial property search
+- Google Geocoding API for address-to-coordinate conversion
+- Google Cloud Storage for property image storage
+
+Configuration and credentials are supplied through application configuration
+and environment variables.
+
+Sensitive information such as database credentials, JWT secrets, and API keys
+is not committed to version control.
+
+---
+
+## CORS & Security
+
+- JWT-based stateless authentication
+- BCrypt password hashing
+- Role-based authorization
+- CSRF disabled for the stateless REST API
+- `SessionCreationPolicy.STATELESS`
+- Explicit CORS configuration for the separately hosted React frontend
+
+---
+
+## Frontend
+
+The user interface is implemented as a separate React application.
+
+**Frontend Repository:**  
+[StayBooking Frontend](FRONTEND_GITHUB_URL)
+
+The frontend communicates with this Spring Boot backend through REST APIs.
+
+The original frontend deployment is hosted on Render:
+
+https://staybooking-frontend.onrender.com/
+
+The original backend/cloud infrastructure is currently inactive, so the hosted
+frontend may not provide full application functionality until the deployment is restored.
 
 ---
 
 ## Running Locally
 
-1. Configure database credentials and external service settings in `application.properties`
-2. Start the backend:
+### Prerequisites
 
-```bash
-mvn spring-boot:run
-```
+- Java
+- Maven
+- MySQL
+- Elasticsearch
+- Required Google API / Cloud Storage configuration
 
-3. Backend will be available at:
+### Configuration
 
-```arduino
-http://localhost:8080
+Configure the required database and external service settings using
+`application.properties` or environment variables.
 
-```
-The frontend runs separately (typically on `http://localhost:3000`).
+Required configuration includes:
+
+- MySQL connection
+- JWT signing configuration
+- Elasticsearch connection
+- Google Geocoding API configuration
+- Google Cloud Storage configuration
+
+### Start the Backend
+
+Run:
+
+`mvn spring-boot:run`
+
+The backend will be available at:
+
+`http://localhost:8080`
+
+The React frontend runs separately and communicates with the backend through
+REST APIs.
+
+---
+
+## Project Structure
+
+The backend is organized into separate layers for API handling, business logic,
+data access, security, and external integrations.
+
+Typical structure:
+
+src/main/java
+├── controller
+├── service
+├── repository
+├── model
+├── security
+├── config
+├── exception
+└── dto
+
+This separation keeps HTTP handling, business logic, persistence, and security
+concerns isolated and easier to maintain.
+
+---
 
 ## Project Status
 
-- This backend is an actively evolving project, focusing on:
+Core application functionality includes:
 
-- Backend architecture clarity
+- User registration and authentication
+- HOST / GUEST role-based authorization
+- Property management
+- Geospatial property search
+- Guest-capacity and date-availability filtering
+- Reservation management
+- Collision prevention for overlapping reservations
+- Image storage
+- External geocoding integration
 
-- Secure authentication and authorization
+The original cloud deployment is currently inactive and is being updated.
+The application can be configured to run locally with the required services.
 
-- Real-world service integrations
+---
 
-- Clean separation between frontend and backend
+## Related Repositories
+
+- **Backend:** [StayBooking Backend](BACKEND_GITHUB_URL)
+- **Frontend:** [StayBooking Frontend](FRONTEND_GITHUB_URL)
+
+---
 
 ## License
 
